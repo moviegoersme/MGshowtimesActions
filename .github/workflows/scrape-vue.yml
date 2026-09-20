@@ -1,0 +1,55 @@
+name: Scrape Vue Cinemas (UK)
+
+# Vue's 89 real UK locations (see scripts/scrape_vue.py's own docstring)
+# sit behind a real Cloudflare "managed" challenge on every page AND its
+# own JSON API — no in-process parser, on Vercel or otherwise, can get
+# past it (confirmed live: scrapers/fetch.py gets a flat 403 on the films
+# API itself). patchright with real_chrome=True does get through
+# (confirmed live via scripts/probe_vue_stealth.py), so this is that
+# chain's entire scrape path, independent of the app's own
+# /api/cron/scrape sweep — same shape as scrape-k-cineplex.yml.
+#
+# Unlike K-Cineplex's 4 cinemas, this solves the Cloudflare challenge
+# ONCE per run and reuses that single browser session for all 89
+# cinemas' API calls (confirmed live via scripts/probe_vue_cinema_ids.py,
+# which made 89 such calls in one session) — re-solving per cinema would
+# be far slower and far more likely to trip rate-limiting.
+#
+# Scheduled every 3 hours, matching these 89 cinemas' own
+# scrape_interval_minutes: 180 in cinemas/registry.yaml. Confirmed live
+# (2026-09-16): a full manual run wrote real, varying showtimes for
+# all 89/89 cinemas (23 to 675 rows each, no failures) in about 12
+# minutes — comfortably inside this job's 45-minute timeout, and no sign
+# of the shared browser session's Cloudflare clearance expiring or
+# getting rate-limited partway through. workflow_dispatch stays
+# available too, for a manual re-run any time.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 */3 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python -m scripts.scrape_vue

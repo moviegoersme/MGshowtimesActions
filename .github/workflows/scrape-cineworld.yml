@@ -1,0 +1,58 @@
+name: Scrape Cineworld (UK)
+
+# Cineworld's 87 real UK locations (see scripts/scrape_cineworld.py's own
+# docstring) sit behind a real Cloudflare "managed" challenge on every
+# page AND its own JSON API — no in-process parser, on Vercel or
+# otherwise, can get past it (confirmed live: scrapers/fetch.py gets a
+# flat 403 on the data API itself). patchright with real_chrome=True does
+# get through (confirmed live via scripts/probe_cineworld_stealth.py), so
+# this is that chain's entire scrape path, independent of the app's own
+# /api/cron/scrape sweep — same shape as scrape-vue.yml.
+#
+# Cinemas are processed in batches of 12, re-solving Cloudflare fresh at
+# the start of each batch (scripts/scrape_cineworld.py's own BATCH_SIZE)
+# — a first full run reusing ONE session for all 87 cinemas found its
+# Cloudflare clearance doesn't reliably survive that much API traffic
+# (real data for ~15-21 cinemas, then 403 "Just a moment..." on every
+# remaining call, confirmed live via diagnostic logging). Batching fixed
+# it: confirmed live, 2026-09-16, all 87/87 cinemas' latest run
+# status=success, 35,559 real showtimes written (against the OLD
+# quickbook API — see scrape_cineworld.py's own docstring for the
+# 2026-09-17 site rebuild that replaced it; the batching design carried
+# straight over to the new API unchanged).
+#
+# Scheduled every 3 hours, matching these 87 cinemas' own
+# scrape_interval_minutes: 180 in cinemas/registry.yaml — offset 90
+# minutes from scrape-vue.yml's own "0 */3 * * *" so the two largest
+# GitHub-Actions-only scrapes in this repo don't run at the same time.
+# workflow_dispatch stays available too, for a manual re-run any time.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "30 1-23/3 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python -m scripts.scrape_cineworld

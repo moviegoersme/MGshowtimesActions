@@ -1,0 +1,74 @@
+name: Probe Odeon (UK)
+
+# Diagnostic only — does NOT scrape or submit anything. Earlier rounds of
+# this workflow (see git history for scripts/probe_odeon*.py) already
+# answered:
+# - odeon.co.uk hard-blocks GitHub Actions' own IP ranges outright, but
+#   routing through a Decodo residential proxy clears it entirely.
+# - The full cinema list is available two ways: Odeon's own CMS API
+#   (118 cinemas, /api/omnia/v1/pageList?...&properties=vistaCinema) and
+#   Vista's own OCAPI (101 cinemas, vwc.odeon.co.uk/WSVistaWebClient/
+#   ocapi/v1/sites — id+name+location+timezone).
+# - vwc.odeon.co.uk/WSVistaWebClient/ocapi/v1/films/availability is a
+#   NATIONWIDE film-to-category mapping (NowShowing/ComingSoon), not
+#   per-cinema session times — siteId is always null in it.
+# - Capturing Vista responses reliably needed registering the listener
+#   via scrapling's `page_setup` hook (runs before any navigation),
+#   not `page_action` (runs after navigation AND after solve_cloudflare
+#   finishes, including its own internal reload cycles — a listener
+#   attached there can miss requests that already fired, a pure timing
+#   coin-flip that explained several earlier inconsistent runs).
+# Those jobs were removed once answered, to keep re-runs of this
+# workflow fast — see git history if they need to be re-run.
+#
+# IMPORTANT: the Decodo account is on a 100 MB trial (confirmed live via
+# the user's own dashboard) — every proxy-routed script in this repo
+# passes disable_resources=True and block_ads=True to keep data usage
+# down against that budget. Keep doing that in any new proxy-routed
+# script added here.
+#
+# The open question this version answers: the homepage's own "Book
+# Tickets" buttons link to film detail pages
+# (/films/{slug}/{filmId}/, confirmed live from the captured homepage
+# HTML) — scripts/probe_odeon_film.py visits one real film's page
+# directly (Resident Evil, HO00009025) to find the real per-cinema
+# sessions/showtimes endpoint, using the same page_setup-based listener.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe-film:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+
+      - name: Probe a real film page for the sessions endpoint
+        env:
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+        run: python -m scripts.probe_odeon_film
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: odeon-probe-film-result
+          path: |
+            probe-odeon-film-page.html
+            probe-odeon-film-network-log.txt
+            probe-odeon-film-xhr-*.json
+          if-no-files-found: warn

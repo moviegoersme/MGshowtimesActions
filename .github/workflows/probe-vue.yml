@@ -1,0 +1,60 @@
+name: Probe Vue Cinemas (UK)
+
+# Diagnostic only — does NOT scrape or submit anything. Earlier rounds of
+# this workflow (see git history for scripts/probe_vue.py,
+# probe_vue_stealth.py, probe_vue_site.py) already answered:
+# - plain Playwright never gets past myvue.com's Cloudflare challenge;
+#   patchright's bundled Chromium doesn't either ("managed" Turnstile).
+# - scrapling's StealthyFetcher with real_chrome=True DOES clear it
+#   (confirmed live, 2026-09-16).
+# - the real showtimes API is
+#   /api/microservice/showings/cinemas/{cinemaId}/films?showingDate=...
+#   &minEmbargoLevel=3&includesSession=true&includeSessionAttributes=true
+#   (confirmed live against cinemaId=10015 / Birmingham, with real
+#   sessions: times, screens, prices).
+# Those jobs were removed once answered, to keep re-runs of this
+# workflow fast — see git history if they need to be re-run.
+#
+# The one open question this version answers: the showtimes API needs
+# each cinema's numeric cinemaId, which isn't the same as its URL slug
+# ("birmingham" -> 10015) and isn't itself exposed in the sitemap.
+# scripts/probe_vue_cinema_ids.py tries a couple of plausible "list all
+# cinemas" endpoints, then falls back to pulling each of the 89 real UK
+# slugs' cinemaId out of its own page's Next.js SSR data endpoint — all
+# reusing one already-Cloudflare-cleared browser session instead of
+# re-solving the challenge per cinema.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe-cinema-ids:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+
+      - name: Probe cinema-list endpoints and per-slug cinemaIds
+        run: python -m scripts.probe_vue_cinema_ids
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: vue-probe-cinema-ids-result
+          path: |
+            probe-vue-cinema-list-candidates.json
+            probe-vue-cinema-ids-raw.json
+          if-no-files-found: warn

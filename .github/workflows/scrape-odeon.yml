@@ -1,0 +1,67 @@
+name: Scrape Odeon (UK)
+
+# Odeon's 101 real UK locations (see scripts/scrape_odeon.py's own
+# docstring) sit behind a real Cloudflare block on every page AND its
+# own APIs — no in-process parser, on Vercel or otherwise, can get past
+# it (confirmed live: scrapers/fetch.py gets a flat 403). Unlike Vue and
+# Cineworld, real_chrome ALONE does not clear it — from GitHub Actions'
+# own IP ranges this is a genuine IP-reputation hard block, confirmed
+# live across 4 separate requests. What DOES work: routing through a
+# Decodo residential proxy (repository secrets DECODO_USERNAME/
+# DECODO_PASSWORD) — confirmed live, 2026-09-17.
+#
+# Unlike Vue/Cineworld's per-cinema-per-date looping, this fetches ONE
+# response (a Cloudflare Worker that mirrors Vista's own OCAPI data for
+# the whole chain, odeon-vwc.webtrends-optimize.workers.dev/
+# CinemasSchedule — confirmed live: 34,978 real showings across all 101
+# cinemas, 21 days out, in one ~6.4MB response) plus one smaller films
+# catalog for title lookup (~0.4MB) — no per-cinema requests at all.
+#
+# IMPORTANT: the Decodo account is on a 100 MB trial (confirmed live via
+# the user's own dashboard) — each run costs roughly 7-8MB. On this
+# 3-hour schedule (8 runs/day) that's ~56-64MB/day, which will exhaust a
+# 100 MB trial in under 2 days. This schedule assumes the account will be
+# upgraded to a paid plan before or shortly after this starts running
+# unattended — if the trial runs out, runs will start failing with a
+# proxy auth/quota error, not silently corrupt data (this app's own
+# ingest endpoint never wipes existing showtimes on a failed/empty
+# scrape).
+#
+# workflow_dispatch only for now — this is the first real end-to-end
+# production run for this chain (prior runs were diagnostic probes only,
+# see scripts/probe_odeon_*.py and their own git history). Add a
+# `schedule:` once a manual run is confirmed to write real showtimes for
+# all 101 cinemas, matching scrape_interval_minutes: 180 in
+# cinemas/registry.yaml, offset from scrape-vue.yml's and
+# scrape-cineworld.yml's own schedules so the three largest
+# GitHub-Actions-only scrapes in this repo don't all run at once.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+        run: python -m scripts.scrape_odeon

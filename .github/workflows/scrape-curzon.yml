@@ -1,0 +1,49 @@
+name: Scrape Curzon (UK)
+
+# Curzon's 14 real UK locations (see scripts/scrape_curzon.py's own
+# docstring) sit behind a real Cloudflare challenge on curzon.com itself
+# (confirmed live: a plain unauthenticated GET 403s on every path, even
+# /robots.txt) -- but its digital-api.curzon.com booking API has none at
+# all. So this only needs the browser ONCE per run, to mint the anonymous
+# bearer token curzon.com embeds in its own page HTML; every other call
+# (14 cinemas x (1 film-catalogue call + a 14-day showtimes loop)) is a
+# plain httpx request, no further browser use needed -- much lighter than
+# Vue's own scrape, which has to route every single API call through the
+# browser session.
+#
+# Scheduled every 3 hours, matching these 14 cinemas' own
+# scrape_interval_minutes: 180 in cinemas/registry.yaml -- offset from
+# this repo's other GitHub-Actions-only scrapes (scrape-vue.yml's "0",
+# scrape-cineworld.yml's "30 1-23/3", scrape-omniplex.yml's "15") so they
+# don't all fire at once. workflow_dispatch stays available too, for a
+# manual re-run any time.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "45 */3 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python -m scripts.scrape_curzon

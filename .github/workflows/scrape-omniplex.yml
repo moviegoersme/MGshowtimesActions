@@ -1,0 +1,50 @@
+name: Scrape Omniplex (UK)
+
+# Omniplex's 22 real UK locations (see scripts/scrape_omniplex.py's own
+# docstring) have NO Cloudflare or other bot-detection at all —
+# confirmed live: a plain unauthenticated GET works fine via curl, no
+# proxy or Playwright needed. Unlike every other simple GET-based chain
+# in this app though, there's no single-request-per-cinema bulk
+# endpoint: the real one (/cinema/showtimes/{slug}) only covers ONE
+# date per request, and the site's own UI offers a 7-day booking
+# window, so this is 7 requests per cinema (154 total) — still small
+# enough to run fully sequentially with a courtesy delay (confirmed
+# live: ~7-8s per cinema, ~2.5 minutes for all 22), but more than the
+# in-process Vercel cron sweep (scraper/run.py's own PARSERS) is built
+# for, so this runs as its own scheduled job instead, same shape as
+# Vue/Cineworld.
+#
+# Scheduled every 3 hours, matching these 22 cinemas' own
+# scrape_interval_minutes: 180 in cinemas/registry.yaml — offset 15
+# minutes from scrape-vue.yml's own "0 */3 * * *" and
+# scrape-cineworld.yml's own "30 1-23/3 * * *" so this repo's
+# GitHub-Actions-only scrapes don't all fire at once. workflow_dispatch
+# stays available too, for a manual re-run any time.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "15 */3 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python -m scripts.scrape_omniplex

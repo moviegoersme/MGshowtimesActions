@@ -1,0 +1,51 @@
+name: Scrape Empire Cinemas
+
+# Empire Cinemas (Premiere Sodeco only — see scripts/scrape_empire_cinemas.py
+# and the comment above the empire-cinemas-sodeco entry in
+# cinemas/registry.yaml): its showtimes aren't reachable through the
+# in-process JSON-API parser the way every other Empire Cinemas location
+# is, so a real headless browser runs here instead, on GitHub's full Linux
+# VM runners (a Vercel serverless function can't bundle real Chromium) —
+# this is that one cinema's entire scrape path, independent of the app's
+# own /api/cron/scrape sweep.
+#
+# Retired for now: Sodeco's actual status (closed? a separate/legacy
+# backend?) was never confirmed, so the schedule is off — workflow_dispatch
+# only. Restore the `schedule:` trigger below if Sodeco's status is
+# confirmed and it needs scraping again.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python -m scripts.scrape_empire_cinemas
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: empire-cinemas-failure-screenshots
+          path: failure-*.png
+          if-no-files-found: ignore

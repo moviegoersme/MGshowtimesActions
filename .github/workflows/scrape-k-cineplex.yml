@@ -1,0 +1,53 @@
+name: Scrape K-Cineplex (Cyprus)
+
+# K-Cineplex's 4 Cyprus locations (see scripts/scrape_k_cineplex.py's own
+# docstring) sit behind a real Cloudflare bot-verification challenge that
+# no in-process parser — on Vercel or otherwise — can get past. A
+# stealth-patched Chromium (patchright, via scrapling's StealthyFetcher)
+# running here on GitHub's full Linux VM runners does get through, so
+# this is that cinema chain's entire scrape path, independent of the
+# app's own /api/cron/scrape sweep — same shape as
+# scrape-empire-cinemas.yml for Empire Cinemas Sodeco.
+#
+# Scheduled every 2 hours, matching these 4 cinemas' own
+# scrape_interval_minutes: 120 in cinemas/registry.yaml. workflow_dispatch
+# stays available too, for a manual re-run any time.
+#
+# Installs a real Google Chrome (not just patchright's bundled Chromium)
+# — confirmed live via a real run's own logs: the bundled Chromium's
+# Cloudflare-challenge solve, which passed cleanly on 2026-09-15, started
+# losing 3-for-3 on every attempt the very next day, both scheduled and
+# manual. scripts/scrape_k_cineplex.py's real_chrome=True asks Playwright
+# to launch this real Chrome install instead — not yet confirmed whether
+# that actually beats the now-hardened challenge; the next real run is
+# the test.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 */2 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python -m scripts.scrape_k_cineplex
