@@ -1,0 +1,40 @@
+name: Scrape Village Cinemas (Australia)
+
+# villagecinemas.com.au geo-blocks every non-Australian vantage point
+# this app has ever tried -- confirmed live: a plain unauthenticated
+# GitHub-hosted (ubuntu-latest) run got a flat Cloudflare 403, no
+# solvable challenge, no proxy fix (unlike Odeon/Cineworld's own
+# IP-reputation blocks). Tested from 8 real global locations via a free
+# multi-location HTTP checker: only Sydney cleared. This is a
+# country-of-origin gate, not a bot-fingerprint check.
+#
+# So this runs on a SELF-HOSTED runner physically in AWS ap-southeast-2
+# (Sydney) instead of the usual GitHub-hosted ubuntu-latest -- the one
+# real architectural difference from every other scrape-*.yml in this
+# repo. See scripts/scrape_village_cinemas.py's own module docstring for
+# the full investigation.
+#
+# Scheduled every 3 hours, matching these 23 cinemas' own
+# scrape_interval_minutes: 180 in cinemas/registry.yaml. workflow_dispatch
+# stays available too, for a manual re-run any time.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "20 */3 * * *"
+
+jobs:
+  scrape:
+    runs-on: [self-hosted, au-sydney]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python3 -m scripts.scrape_village_cinemas
