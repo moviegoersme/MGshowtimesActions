@@ -1,0 +1,51 @@
+name: Probe Village Cinemas (Australia)
+
+# Diagnostic only — does NOT scrape or submit anything. villagecinemas.com.au
+# shows "Sorry, you have been blocked" to this developer's own session,
+# the same shape Odeon/Cineworld showed from an IP-reputation decision —
+# not a solvable "Just a moment..." challenge. Wayback Machine's own
+# crawler has also been blocked here for years (every recent capture is
+# a tiny Incapsula/Imperva challenge shell), so unlike HOYTS/Event
+# Cinemas there's no passive reconstruction available — this is the
+# first live look at the real page at all.
+#
+# scripts/probe_village_cinemas.py tries real_chrome alone first, then
+# the Decodo proxy only if that fails, to conserve the shared 100 MB
+# trial budget (already used by Odeon/Cineworld/K-Cineplex/Event
+# Cinemas' own probe).
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+
+      - name: Probe villagecinemas.com.au reachability
+        env:
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+        run: python -m scripts.probe_village_cinemas
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: village-cinemas-probe-result
+          path: probe-village-*.html
+          if-no-files-found: warn
