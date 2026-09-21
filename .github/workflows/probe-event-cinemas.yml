@@ -1,0 +1,42 @@
+name: Probe Event Cinemas (Australia)
+
+# Diagnostic only — does NOT scrape or submit anything. Answers whether
+# eventcinemas.com.au's own Cloudflare geo-block (confirmed live from the
+# developer's own session — error 1009, "banned the country or region
+# your IP address is in") also catches GitHub Actions' own IP ranges, or
+# whether it's scoped to specific banned countries GitHub's own
+# datacenter ranges aren't in. No JS challenge involved (this is a
+# country ban, not a bot-reputation block), so scripts/probe_event_cinemas.py
+# uses plain httpx — no Playwright/Chrome needed for this one, unlike the
+# Odeon/Cineworld probes.
+#
+# Also reports response size for a single cinema/single day, to gauge
+# real per-run bandwidth against the Decodo account's own 100 MB trial
+# budget (shared with Odeon/Cineworld/K-Cineplex) before committing to a
+# design that needs it.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Probe eventcinemas.com.au reachability, direct and via proxy
+        env:
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+        run: python -m scripts.probe_event_cinemas
