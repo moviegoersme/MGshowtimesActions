@@ -1,0 +1,54 @@
+name: Scrape Event Cinemas (Australia)
+
+# Event Cinemas' 53 real Australia locations (including the 5 seasonal
+# Moonlight Cinema outdoor venues) have no Cloudflare bot-detection
+# reachable from GitHub Actions — confirmed live via
+# scripts/probe_event_cinemas.py, a plain unauthenticated GET returned
+# real JSON with no proxy needed at all. This developer's own dev
+# session is separately geo-blocked (Cloudflare error 1009, "banned the
+# country your IP is in"), which is why the real endpoint and shape were
+# reconstructed from Wayback Machine crawls rather than live requests —
+# see scripts/scrape_event_cinemas.py's own docstring.
+#
+# One request already covers every cinema for a given date (confirmed
+# live via a real crawled request with ~65 cinemaIds in one query
+# string), so this is DAYS_AHEAD requests total for the whole chain, not
+# per-cinema — small enough to run as one scheduled job, same shape as
+# Omniplex/Empire Cinemas. Runs as its own GitHub Actions job rather than
+# the in-process Vercel cron sweep because Vercel's own outbound IP was
+# never itself confirmed against eventcinemas.com.au's geo-block, and
+# this environment is the one that WAS confirmed live.
+#
+# Scheduled every 3 hours, matching these 53 cinemas' own
+# scrape_interval_minutes: 180 in cinemas/registry.yaml — offset 5
+# minutes from every other scrape-*.yml's own cron minute in this repo
+# so they don't all fire at once. workflow_dispatch stays available too,
+# for a manual re-run any time.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "5 */3 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: python -m scripts.scrape_event_cinemas
