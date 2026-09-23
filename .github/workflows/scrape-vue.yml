@@ -37,16 +37,15 @@ name: Scrape Vue Cinemas (UK)
 # this job installs Xvfb and runs under it below — a real display is
 # needed even though nothing here is ever actually looked at.
 #
-# IMPORTANT — the `schedule:` trigger is deliberately removed below,
-# same reasoning as scrape-odeon.yml: the Decodo account's bandwidth
-# budget is shared with Odeon (and now Cineworld too), and this script's
-# own ~210+ small API calls per run add meaningfully more request volume
-# on top of what that account was already budgeted for. Confirm real
-# headroom via a manual workflow_dispatch run (and its actual Decodo
-# usage) before restoring `schedule: - cron: "0 */3 * * *"`.
+# UPDATE 2026-09-23: headless=False (above) confirmed live as the real
+# fix — a fresh manual run solved Cloudflare cleanly and wrote real,
+# varying showtimes for all 89/89 cinemas again, ~12 minutes, 0 solve
+# failures. Schedule restored below.
 
 "on":
   workflow_dispatch: {}
+  schedule:
+    - cron: "0 */3 * * *"
 
 jobs:
   scrape:
