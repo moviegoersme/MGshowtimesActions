@@ -15,19 +15,29 @@ name: Scrape Vue Cinemas (UK)
 # which made 89 such calls in one session) — re-solving per cinema would
 # be far slower and far more likely to trip rate-limiting.
 #
-# Scheduled every 3 hours, matching these 89 cinemas' own
-# scrape_interval_minutes: 180 in cinemas/registry.yaml. Confirmed live
-# (2026-09-16): a full manual run wrote real, varying showtimes for
-# all 89/89 cinemas (23 to 675 rows each, no failures) in about 12
-# minutes — comfortably inside this job's 45-minute timeout, and no sign
-# of the shared browser session's Cloudflare clearance expiring or
-# getting rate-limited partway through. workflow_dispatch stays
-# available too, for a manual re-run any time.
+# Ran on a 3-hour schedule (matching these 89 cinemas' own
+# scrape_interval_minutes: 180 in cinemas/registry.yaml) from 2026-09-16
+# through 2026-09-22 18:11 without issue — a full manual run wrote real,
+# varying showtimes for all 89/89 cinemas (23 to 675 rows each, no
+# failures) in about 12 minutes, comfortably inside this job's 45-minute
+# timeout.
+#
+# Starting 2026-09-22 21:08, GitHub Actions' own IP ranges started
+# failing the Cloudflare challenge outright on most runs (same
+# IP-reputation tightening scrape-odeon.yml's own comment already
+# documented a week earlier for odeon.co.uk) — scripts/scrape_vue.py now
+# routes through the same Decodo residential proxy that fixed it there.
+#
+# IMPORTANT — the `schedule:` trigger is deliberately removed below,
+# same reasoning as scrape-odeon.yml: the Decodo account's bandwidth
+# budget is shared with Odeon (and now Cineworld too), and this script's
+# own ~210+ small API calls per run add meaningfully more request volume
+# on top of what that account was already budgeted for. Confirm real
+# headroom via a manual workflow_dispatch run (and its actual Decodo
+# usage) before restoring `schedule: - cron: "0 */3 * * *"`.
 
 "on":
   workflow_dispatch: {}
-  schedule:
-    - cron: "0 */3 * * *"
 
 jobs:
   scrape:
@@ -52,4 +62,6 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
         run: python -m scripts.scrape_vue

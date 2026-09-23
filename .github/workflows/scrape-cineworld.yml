@@ -21,16 +21,29 @@ name: Scrape Cineworld (UK)
 # 2026-09-17 site rebuild that replaced it; the batching design carried
 # straight over to the new API unchanged).
 #
-# Scheduled every 3 hours, matching these 87 cinemas' own
-# scrape_interval_minutes: 180 in cinemas/registry.yaml — offset 90
-# minutes from scrape-vue.yml's own "0 */3 * * *" so the two largest
-# GitHub-Actions-only scrapes in this repo don't run at the same time.
-# workflow_dispatch stays available too, for a manual re-run any time.
+# Ran on a 3-hour schedule (matching these 87 cinemas' own
+# scrape_interval_minutes: 180 in cinemas/registry.yaml, offset 90
+# minutes from scrape-vue.yml's own cron) without issue from 2026-09-16
+# through 2026-09-22 ~19:35.
+#
+# Starting around 2026-09-22 21:00-22:30, GitHub Actions' own IP ranges
+# started failing the Cloudflare challenge outright — every single batch
+# of a run (8/8), each re-solving fresh, confirmed live (same
+# IP-reputation tightening scrape-odeon.yml's own comment already
+# documented a week earlier for odeon.co.uk). scripts/scrape_cineworld.py
+# now routes through the same Decodo residential proxy that fixed it
+# there.
+#
+# IMPORTANT — the `schedule:` trigger is deliberately removed below,
+# same reasoning as scrape-odeon.yml: the Decodo account's bandwidth
+# budget is shared with Odeon (and now Vue too), and this script's own
+# per-batch schedule + movies calls add meaningfully more request volume
+# on top of what that account was already budgeted for. Confirm real
+# headroom via a manual workflow_dispatch run (and its actual Decodo
+# usage) before restoring `schedule: - cron: "30 1-23/3 * * *"`.
 
 "on":
   workflow_dispatch: {}
-  schedule:
-    - cron: "30 1-23/3 * * *"
 
 jobs:
   scrape:
@@ -55,4 +68,6 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
         run: python -m scripts.scrape_cineworld
