@@ -14,13 +14,21 @@ name: Scrape K-Cineplex (Cyprus)
 # stays available too, for a manual re-run any time.
 #
 # Installs a real Google Chrome (not just patchright's bundled Chromium)
-# — confirmed live via a real run's own logs: the bundled Chromium's
-# Cloudflare-challenge solve, which passed cleanly on 2026-09-15, started
-# losing 3-for-3 on every attempt the very next day, both scheduled and
-# manual. scripts/scrape_k_cineplex.py's real_chrome=True asks Playwright
-# to launch this real Chrome install instead — not yet confirmed whether
-# that actually beats the now-hardened challenge; the next real run is
-# the test.
+# — the bundled Chromium's Cloudflare-challenge solve, which passed
+# cleanly on 2026-09-15, started losing 3-for-3 on every attempt the
+# very next day, both scheduled and manual.
+# scripts/scrape_k_cineplex.py's real_chrome=True asks Playwright to
+# launch this real Chrome install instead.
+#
+# UPDATE — real_chrome=True alone did NOT fix it: confirmed live,
+# 2026-09-23, every scheduled run from 2026-09-16 through today had been
+# silently reporting success with 0 real showtimes for all 4 cinemas.
+# The actual cause was headless=True itself — a confirmed, still-open
+# scrapling bug (github.com/D4Vinci/Scrapling/issues/422) that loops and
+# fails to solve Cloudflare's "managed" challenge under headless=True,
+# same root cause already found and fixed for Vue/Odeon/Cineworld.
+# scripts/scrape_k_cineplex.py now runs headless=False, which is why
+# this job installs Xvfb and runs under it below.
 
 "on":
   workflow_dispatch: {}
@@ -45,9 +53,16 @@ jobs:
         run: |
           pip install -r requirements.txt
           python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Scrape and submit
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: python -m scripts.scrape_k_cineplex
+          # See scrape-vue.yml's own comment on this — same block-buffered
+          # stdout problem applies here.
+          PYTHONUNBUFFERED: "1"
+        # xvfb-run gives the browser a real (virtual) display to run
+        # non-headless against — see this file's own top comment for why
+        # headless=False is required here.
+        run: xvfb-run -a python -m scripts.scrape_k_cineplex
