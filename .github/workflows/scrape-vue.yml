@@ -64,4 +64,11 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
           DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          # Python fully block-buffers stdout when it isn't a TTY (i.e.
+          # always, under GH Actions) — without this, dozens of this
+          # script's own per-cinema print()s land in the log as one big
+          # burst whenever the buffer happens to flush, not as they
+          # actually happen, making a genuinely slow-but-working run
+          # indistinguishable from a hung one in the live log.
+          PYTHONUNBUFFERED: "1"
         run: python -m scripts.scrape_vue

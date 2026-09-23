@@ -64,4 +64,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
           DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          # See scrape-vue.yml's own comment on this — same block-buffered
+          # stdout problem applies here.
+          PYTHONUNBUFFERED: "1"
         run: python -m scripts.scrape_odeon
