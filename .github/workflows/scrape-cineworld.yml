@@ -21,38 +21,47 @@ name: Scrape Cineworld (UK)
 # 2026-09-17 site rebuild that replaced it; the batching design carried
 # straight over to the new API unchanged).
 #
-# Ran on a 3-hour schedule (matching these 87 cinemas' own
-# scrape_interval_minutes: 180 in cinemas/registry.yaml, offset 90
-# minutes from scrape-vue.yml's own cron) without issue from 2026-09-16
-# through 2026-09-22 ~19:35.
+# Ran on a schedule (offset 90 minutes from scrape-vue.yml's own cron)
+# without issue from 2026-09-16 through 2026-09-22 ~19:35 — previously
+# every 3 hours ("30 1-23/3 * * *"), which was itself a stale mismatch
+# against these 87 cinemas' own scrape_interval_minutes: 240 in
+# cinemas/registry.yaml; corrected to match below.
 #
 # Starting around 2026-09-22 21:00-22:30, runs started failing outright.
 # Routing through the same Decodo residential proxy that fixed Odeon's
 # IP-reputation block did NOT fix this (confirmed live, 2026-09-23): the
-# homepage itself now loads fine (no Cloudflare challenge shown at all),
-# but every per-cinema schedule API call gets a flat 403 with a static
-# error-page body — not a Cloudflare challenge page, so this specific
-# symptom is still unexplained and NOT what the change below addresses.
+# homepage itself loaded fine (no Cloudflare challenge shown at all), but
+# every per-cinema schedule API call got a flat 403 — confirmed via a
+# direct curl (Server: cloudflare, a fresh __cf_bm cookie) to be
+# Cloudflare's own Bot Management silently rejecting the request, not a
+# solvable challenge and not a Cineworld-side WAF.
 #
-# What IS fixed here: a confirmed, still-open scrapling bug
-# (github.com/D4Vinci/Scrapling/issues/422) — headless=True loops and
-# fails to solve Cloudflare's "managed" challenge (the earlier "403 'Just
-# a moment...'" symptom this file's own history already documented above
-# is exactly that shape); headless=False (a real, non-headless browser
-# window) solves the same challenge in seconds.
-# scripts/scrape_cineworld.py now runs headless=False, which is why this
-# job installs Xvfb and runs under it below.
+# Two separate fixes were needed:
+# 1. A confirmed, still-open scrapling bug
+#    (github.com/D4Vinci/Scrapling/issues/422) — headless=True loops and
+#    fails to solve Cloudflare's "managed" challenge (the earlier "403
+#    'Just a moment...'" symptom this file's own history already
+#    documented above is exactly that shape); headless=False (a real,
+#    non-headless browser window) solves it in seconds.
+#    scripts/scrape_cineworld.py now runs headless=False, which is why
+#    this job installs Xvfb and runs under it below.
+# 2. The Bot Management 403 on the API path itself: fixed by switching
+#    the Decodo proxy from the generic gate.decodo.com:7000 every other
+#    script here uses to Decodo's dedicated UK endpoint
+#    (gb.decodo.com:30000) — a guaranteed-UK exit IP scores differently
+#    for this UK-only chain's own API than whatever country the generic
+#    rotating pool happened to hand out (scripts/scrape_cineworld.py's
+#    own comment on this).
 #
-# IMPORTANT — the `schedule:` trigger is deliberately removed below,
-# same reasoning as scrape-odeon.yml: the Decodo account's bandwidth
-# budget is shared with Odeon (and now Vue too), and this script's own
-# per-batch schedule + movies calls add meaningfully more request volume
-# on top of what that account was already budgeted for. Confirm real
-# headroom via a manual workflow_dispatch run (and its actual Decodo
-# usage) before restoring `schedule: - cron: "30 1-23/3 * * *"`.
+# Confirmed live, 2026-09-23: a fresh manual run solved Cloudflare
+# cleanly across all 8 batches and wrote real showtimes for all 87/87
+# cinemas — schedule restored below, corrected to the registry's own
+# 240-minute (4-hour) interval.
 
 "on":
   workflow_dispatch: {}
+  schedule:
+    - cron: "30 1-23/4 * * *"
 
 jobs:
   scrape:
