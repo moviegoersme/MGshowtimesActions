@@ -35,6 +35,17 @@ name: Scrape Odeon (UK)
 # cinemas/registry.yaml, offset from scrape-vue.yml's and
 # scrape-cineworld.yml's own schedules so the three largest
 # GitHub-Actions-only scrapes in this repo don't all run at once.
+#
+# UPDATE 2026-09-23: the proxy above fixed the ORIGINAL flat IP-block —
+# but a manual re-run this same day found Cloudflare now presents an
+# actual interactive "managed" challenge here too (progress — no longer
+# a flat block), which then failed to solve 3/3 attempts even proxied.
+# Root cause: a confirmed, still-open scrapling bug
+# (github.com/D4Vinci/Scrapling/issues/422) — headless=True loops and
+# fails to solve this challenge type; headless=False (a real,
+# non-headless browser window) solves it in seconds.
+# scripts/scrape_odeon.py now runs headless=False, which is why this job
+# installs Xvfb and runs under it below.
 
 "on":
   workflow_dispatch: {}
@@ -57,6 +68,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Scrape and submit
         env:
@@ -67,4 +79,7 @@ jobs:
           # See scrape-vue.yml's own comment on this — same block-buffered
           # stdout problem applies here.
           PYTHONUNBUFFERED: "1"
-        run: python -m scripts.scrape_odeon
+        # xvfb-run gives the browser a real (virtual) display to run
+        # non-headless against — see this file's own top comment for why
+        # headless=False is required here.
+        run: xvfb-run -a python -m scripts.scrape_odeon

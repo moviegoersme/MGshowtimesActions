@@ -26,13 +26,22 @@ name: Scrape Cineworld (UK)
 # minutes from scrape-vue.yml's own cron) without issue from 2026-09-16
 # through 2026-09-22 ~19:35.
 #
-# Starting around 2026-09-22 21:00-22:30, GitHub Actions' own IP ranges
-# started failing the Cloudflare challenge outright — every single batch
-# of a run (8/8), each re-solving fresh, confirmed live (same
-# IP-reputation tightening scrape-odeon.yml's own comment already
-# documented a week earlier for odeon.co.uk). scripts/scrape_cineworld.py
-# now routes through the same Decodo residential proxy that fixed it
-# there.
+# Starting around 2026-09-22 21:00-22:30, runs started failing outright.
+# Routing through the same Decodo residential proxy that fixed Odeon's
+# IP-reputation block did NOT fix this (confirmed live, 2026-09-23): the
+# homepage itself now loads fine (no Cloudflare challenge shown at all),
+# but every per-cinema schedule API call gets a flat 403 with a static
+# error-page body — not a Cloudflare challenge page, so this specific
+# symptom is still unexplained and NOT what the change below addresses.
+#
+# What IS fixed here: a confirmed, still-open scrapling bug
+# (github.com/D4Vinci/Scrapling/issues/422) — headless=True loops and
+# fails to solve Cloudflare's "managed" challenge (the earlier "403 'Just
+# a moment...'" symptom this file's own history already documented above
+# is exactly that shape); headless=False (a real, non-headless browser
+# window) solves the same challenge in seconds.
+# scripts/scrape_cineworld.py now runs headless=False, which is why this
+# job installs Xvfb and runs under it below.
 #
 # IMPORTANT — the `schedule:` trigger is deliberately removed below,
 # same reasoning as scrape-odeon.yml: the Decodo account's bandwidth
@@ -63,6 +72,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Scrape and submit
         env:
@@ -73,4 +83,7 @@ jobs:
           # See scrape-vue.yml's own comment on this — same block-buffered
           # stdout problem applies here.
           PYTHONUNBUFFERED: "1"
-        run: python -m scripts.scrape_cineworld
+        # xvfb-run gives the browser a real (virtual) display to run
+        # non-headless against — see this file's own top comment for why
+        # headless=False is required here.
+        run: xvfb-run -a python -m scripts.scrape_cineworld
