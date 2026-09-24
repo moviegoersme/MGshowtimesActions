@@ -1,0 +1,47 @@
+name: Scrape Multikino (Poland)
+
+# Multikino's 38 Polish locations (see scripts/scrape_multikino.py in
+# moviegoersme/showtimes). multikino.pl and its JSON API sit behind a
+# Cloudflare "managed" challenge -- the same Vue International platform
+# and the same wall as myvue.com, so this is scrape-vue.yml's setup: real
+# Chrome, headless=False under xvfb, Decodo proxy. Unlike Vue, the
+# challenge only clears through a POLISH exit IP (confirmed by
+# probe-multikino.yml: generic pool 3/3 failures, Polish exit clean).
+#
+# Every 4h (matching these cinemas' scrape_interval_minutes: 240), at :30
+# so it never starts alongside scrape-vue.yml's on-the-hour runs on the
+# same shared Decodo account.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "30 */4 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          PYTHONUNBUFFERED: "1"
+        run: xvfb-run -a python -m scripts.scrape_multikino
