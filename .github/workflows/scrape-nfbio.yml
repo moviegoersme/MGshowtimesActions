@@ -1,0 +1,42 @@
+name: Scrape Nordisk Film Biografer (Denmark)
+
+# Nordisk Film Biografer's Danish cinemas (see scripts/scrape_nfbio.py in
+# moviegoersme/showtimes). www.nfbio.dk only accepts connections from
+# Danish IPs and Vercel has no Danish region, so this runs here through a
+# Danish Decodo exit. No bot challenge behind the geo-block: plain HTTP,
+# no browser, one compressed page per cinema.
+
+"on":
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch and parse only; submit nothing"
+        type: boolean
+        default: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          PYTHONUNBUFFERED: "1"
+        run: python -m scripts.scrape_nfbio
