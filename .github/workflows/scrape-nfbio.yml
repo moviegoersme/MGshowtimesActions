@@ -5,6 +5,10 @@ name: Scrape Nordisk Film Biografer (Denmark)
 # Danish IPs and Vercel has no Danish region, so this runs here through a
 # Danish Decodo exit. No bot challenge behind the geo-block: plain HTTP,
 # no browser, one compressed page per cinema.
+#
+# Every 4h (these cinemas' scrape_interval_minutes: 240) at :45, clear of
+# scrape-vue.yml (:00) and scrape-multikino.yml (:30) on the shared Decodo
+# account.
 
 "on":
   workflow_dispatch:
@@ -13,6 +17,8 @@ name: Scrape Nordisk Film Biografer (Denmark)
         description: "Fetch and parse only; submit nothing"
         type: boolean
         default: false
+  schedule:
+    - cron: "45 */4 * * *"
 
 jobs:
   scrape:
