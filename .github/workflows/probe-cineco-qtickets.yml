@@ -1,0 +1,33 @@
+name: Probe Cineco / Q-Tickets
+
+# One-off investigation: Cineco Qatar/Bahrain scrapers return no
+# showtimes; runs the real scrapers from moviegoersme/showtimes and
+# inspects q-tickets.com (their booking site). Runs on push to the
+# investigation branch.
+
+"on":
+  workflow_dispatch: {}
+  push:
+    branches: [claude/affectionate-maxwell-0lm1yw]
+    paths: [probes/**, .github/workflows/probe-cineco-qtickets.yml]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          path: showtimes
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r showtimes/requirements.txt httpx
+      - name: Probe
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python probes/probe_cineco_qtickets.py
