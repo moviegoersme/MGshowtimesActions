@@ -3,13 +3,12 @@ name: Scrape Curzon (UK)
 # Curzon's 14 real UK locations (see scripts/scrape_curzon.py's own
 # docstring) sit behind a real Cloudflare challenge on curzon.com itself
 # (confirmed live: a plain unauthenticated GET 403s on every path, even
-# /robots.txt) -- but its digital-api.curzon.com booking API has none at
-# all. So this only needs the browser ONCE per run, to mint the anonymous
-# bearer token curzon.com embeds in its own page HTML; every other call
-# (14 cinemas x (1 film-catalogue call + a 14-day showtimes loop)) is a
-# plain httpx request, no further browser use needed -- much lighter than
-# Vue's own scrape, which has to route every single API call through the
-# browser session.
+# /robots.txt). Its digital-api.curzon.com booking API USED to have no
+# gate at all, but since 2026-09-23 it 403s every plain out-of-browser
+# request too -- so every API call is now made from inside the browser
+# page itself (page.evaluate(fetch(...)), same as Vue's own scrape), in
+# batches of a few cinemas per fresh browser session. See
+# scripts/scrape_curzon.py's own docstring for the details.
 #
 # Scheduled every 3 hours, matching these 14 cinemas' own
 # scrape_interval_minutes: 180 in cinemas/registry.yaml -- offset from
@@ -46,4 +45,7 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Stream this script's per-cinema print()s live instead of in
+          # one burst whenever Python's block buffer happens to flush.
+          PYTHONUNBUFFERED: "1"
         run: python -m scripts.scrape_curzon
