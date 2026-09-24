@@ -1,8 +1,9 @@
 name: Probe Cineco / Q-Tickets
 
 # One-off investigation: Cineco Qatar/Bahrain scrapers return no
-# showtimes; checks Cineco's own pages and what q-tickets.com (their
-# booking site) exposes. Runs on push to the investigation branch.
+# showtimes; runs the real scrapers from moviegoersme/showtimes and
+# inspects q-tickets.com (their booking site). Runs on push to the
+# investigation branch.
 
 "on":
   workflow_dispatch: {}
@@ -16,13 +17,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          path: showtimes
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: |
-          pip install httpx playwright
-          python -m playwright install chromium --with-deps
+        run: pip install -r showtimes/requirements.txt httpx
       - name: Probe
         env:
           PYTHONUNBUFFERED: "1"
