@@ -18,12 +18,17 @@ name: Scrape Curzon (UK)
 # manual re-run any time.
 #
 # UPDATE 2026-09-26: silently broken from 2026-09-25 ~18:55 UTC through
-# today -- a confirmed, still-open scrapling bug
-# (github.com/D4Vinci/Scrapling/issues/422), same root cause already
-# found and fixed for Vue/Odeon/K-Cineplex/Cineworld: headless=True loops
-# and fails to solve Cloudflare's "managed" challenge.
-# scripts/scrape_curzon.py now runs headless=False, which is why this job
-# installs Xvfb and runs under it below.
+# today. Initially misdiagnosed as the confirmed headless=True/
+# Cloudflare-"managed"-challenge scrapling bug already fixed for
+# Vue/Odeon/K-Cineplex/Cineworld (github.com/D4Vinci/Scrapling/
+# issues/422) -- headless=False alone didn't fix it. A temporary
+# diagnostic showed the real cause: a flat "Attention Required!"
+# Cloudflare block page, a non-interactive IP-reputation block, the same
+# shape scrape-odeon.yml's own comment documents. Fixed the same way:
+# scripts/scrape_curzon.py now routes through the Decodo residential
+# proxy too (repository secrets DECODO_USERNAME/DECODO_PASSWORD).
+# headless=False is kept anyway as a cheap second line of defense, which
+# is why this job still installs Xvfb and runs under it.
 
 "on":
   workflow_dispatch: {}
@@ -54,6 +59,8 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
           # Stream this script's per-cinema print()s live instead of in
           # one burst whenever Python's block buffer happens to flush.
           PYTHONUNBUFFERED: "1"
