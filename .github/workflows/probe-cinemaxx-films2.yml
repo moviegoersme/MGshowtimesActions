@@ -1,0 +1,41 @@
+name: Probe CinemaxX Films Response 2 (via page.evaluate)
+
+# Diagnostic only -- does NOT scrape or submit anything. Round 1's direct
+# top-level navigation to the films API failed with
+# net::ERR_HTTP_RESPONSE_CODE_FAILURE -- see
+# scripts/probe_cinemaxx_films2.py's own docstring for why this retries
+# via page.evaluate(fetch(...)) from an already-loaded real page instead.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe-films-2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Probe films response via page.evaluate
+        run: xvfb-run -a python -m scripts.probe_cinemaxx_films2
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cinemaxx-probe-films2-result
+          path: probe-cinemaxx-films2.json
+          if-no-files-found: warn
