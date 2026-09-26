@@ -24,9 +24,13 @@ name: Scrape Curzon (UK)
 # issues/422) -- headless=False alone didn't fix it. A temporary
 # diagnostic showed the real cause: a flat "Attention Required!"
 # Cloudflare block page, a non-interactive IP-reputation block, the same
-# shape scrape-odeon.yml's own comment documents. Fixed the same way:
-# scripts/scrape_curzon.py now routes through the Decodo residential
-# proxy too (repository secrets DECODO_USERNAME/DECODO_PASSWORD).
+# shape scrape-odeon.yml's own comment documents. Decodo's generic
+# residential gateway (gate.decodo.com:7000, Odeon/Vue's own fix) did NOT
+# clear it either. Decodo's dedicated UK endpoint (gb.decodo.com:30000,
+# scrape-cineworld.yml's own fix for its separate Bot-Management block)
+# DID: confirmed live 2026-09-26, run 36236446281, all 14/14 cinemas
+# returned real showtimes. scripts/scrape_curzon.py now routes through
+# that UK endpoint (repository secrets DECODO_USERNAME/DECODO_PASSWORD).
 # headless=False is kept anyway as a cheap second line of defense, which
 # is why this job still installs Xvfb and runs under it.
 
