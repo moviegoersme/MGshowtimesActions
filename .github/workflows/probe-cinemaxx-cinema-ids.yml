@@ -1,0 +1,40 @@
+name: Probe CinemaxX Cinema IDs
+
+# Diagnostic only -- does NOT scrape or submit anything. Pulls the numeric
+# cinemaId for each of CinemaxX's 30 real locations, reusing one already-
+# Cloudflare-cleared browser session -- see
+# scripts/probe_cinemaxx_cinema_ids.py's own docstring.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe-cinema-ids:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Probe cinema-list endpoints and per-slug cinemaIds
+        run: xvfb-run -a python -m scripts.probe_cinemaxx_cinema_ids
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cinemaxx-probe-cinema-ids-result
+          path: probe-cinemaxx-cinema-ids-raw.json
+          if-no-files-found: warn
