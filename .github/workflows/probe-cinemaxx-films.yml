@@ -1,0 +1,40 @@
+name: Probe CinemaxX Films Response
+
+# Diagnostic only -- does NOT scrape or submit anything. Confirms the real
+# films/sessions response shape (price format, screenName) on cinemaxx.de
+# before writing scripts/scrape_cinemaxx.py -- see
+# scripts/probe_cinemaxx_films.py's own docstring.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe-films:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Probe films response
+        run: xvfb-run -a python -m scripts.probe_cinemaxx_films
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cinemaxx-probe-films-result
+          path: probe-cinemaxx-films.json
+          if-no-files-found: warn
