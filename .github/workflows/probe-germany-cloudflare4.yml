@@ -1,0 +1,46 @@
+name: Probe Germany Cloudflare Chains 4 (Vue API confirm / UCI real page)
+
+# Diagnostic only -- does NOT scrape or submit anything. Round 4, following
+# scripts/probe_germany_cloudflare3.py's own findings -- see
+# scripts/probe_germany_cloudflare4.py's own docstring for exactly what
+# this run answers.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe-cloudflare-4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Confirm CinemaxX's Vue API and probe UCI's real cinema page
+        env:
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+        run: xvfb-run -a python -m scripts.probe_germany_cloudflare4
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: probe-germany-cloudflare4-result
+          path: |
+            probe-germany-*.html
+            probe-germany-*.txt
+            probe-germany-*.json
+          if-no-files-found: warn
