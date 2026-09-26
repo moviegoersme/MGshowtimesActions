@@ -1,0 +1,47 @@
+name: Probe Germany Cloudflare Chains (CinemaxX / UCI Kinowelt)
+
+# Diagnostic only -- does NOT scrape or submit anything. CinemaxX
+# (www.cinemaxx.de, Vue-owned) and UCI Kinowelt (www.uci-kinowelt.de) both
+# showed a Cloudflare interstitial on a plain fetch -- see
+# scripts/probe_germany_cloudflare.py's own docstring for what this run
+# answers: whether StealthyFetcher(headless=False, real_chrome=True,
+# solve_cloudflare=True) clears each site (same combination that cleared
+# Vue UK/Odeon UK/Cineworld UK/Curzon UK's own challenges), and where each
+# site's real showtimes API lives if so.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe-cloudflare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Probe CinemaxX and UCI Kinowelt
+        run: xvfb-run -a python -m scripts.probe_germany_cloudflare
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: probe-germany-cloudflare-result
+          path: |
+            probe-germany-*.html
+            probe-germany-*.txt
+            probe-germany-*.json
+          if-no-files-found: warn
