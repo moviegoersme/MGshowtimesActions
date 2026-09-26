@@ -16,6 +16,14 @@ name: Scrape Curzon (UK)
 # scrape-cineworld.yml's "30 1-23/3", scrape-omniplex.yml's "15") so they
 # don't all fire at once. workflow_dispatch stays available too, for a
 # manual re-run any time.
+#
+# UPDATE 2026-09-26: silently broken from 2026-09-25 ~18:55 UTC through
+# today -- a confirmed, still-open scrapling bug
+# (github.com/D4Vinci/Scrapling/issues/422), same root cause already
+# found and fixed for Vue/Odeon/K-Cineplex/Cineworld: headless=True loops
+# and fails to solve Cloudflare's "managed" challenge.
+# scripts/scrape_curzon.py now runs headless=False, which is why this job
+# installs Xvfb and runs under it below.
 
 "on":
   workflow_dispatch: {}
@@ -40,6 +48,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Scrape and submit
         env:
@@ -48,4 +57,7 @@ jobs:
           # Stream this script's per-cinema print()s live instead of in
           # one burst whenever Python's block buffer happens to flush.
           PYTHONUNBUFFERED: "1"
-        run: python -m scripts.scrape_curzon
+        # xvfb-run gives the browser a real (virtual) display to run
+        # non-headless against -- see this file's own top comment for why
+        # headless=False is required here.
+        run: xvfb-run -a python -m scripts.scrape_curzon
