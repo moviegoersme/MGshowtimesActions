@@ -1,0 +1,67 @@
+name: Scrape CinemaxX (Germany)
+
+# CinemaxX's 29 real German locations (see scripts/scrape_cinemaxx.py's
+# own docstring) run on the EXACT SAME Sitecore JSS + showings-API
+# platform as Vue UK (myvue.com) and sit behind the same Cloudflare
+# "managed" challenge -- no in-process parser, on Vercel or otherwise,
+# can get past it. Same shape as scrape-vue.yml itself: this is the
+# chain's entire scrape path, independent of the app's own
+# /api/cron/scrape sweep.
+#
+# Solves Cloudflare ONCE per batch of BATCH_SIZE=15 cinemas and reuses
+# that one browser session's cookies for every cinema's own API calls in
+# it (page.evaluate(fetch(...)) -- a direct top-level navigation to the
+# films API itself failed with net::ERR_HTTP_RESPONSE_CODE_FAILURE,
+# confirmed live), same batching design as scrape_vue.py.
+#
+# headless=False (not headless=True) is required for the same reason
+# scrape-vue.yml's own comment documents: a confirmed, still-open
+# scrapling bug (github.com/D4Vinci/Scrapling/issues/422) makes
+# headless=True loop and fail to solve Cloudflare's "managed" challenge,
+# while headless=False (via Xvfb, installed below) solves it in seconds
+# -- confirmed live for CinemaxX itself, 2026-09-26, no Decodo proxy
+# needed on top of it (unlike Vue UK, which keeps one as a second line of
+# defense).
+#
+# Scheduled every 4 hours, matching these 29 cinemas' own
+# scrape_interval_minutes: 240 in cinemas/registry.yaml -- offset from
+# this repo's other 4h GitHub-Actions-only scrapes (scrape-cineworld.yml's
+# "30 1-23/4", scrape-uci-kinowelt.yml's "50 */4") so they don't all fire
+# at once.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "15 */4 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Stream this script's per-cinema print()s live instead of in
+          # one burst whenever Python's block buffer happens to flush.
+          PYTHONUNBUFFERED: "1"
+        # xvfb-run gives the browser a real (virtual) display to run
+        # non-headless against -- see this file's own top comment for why
+        # headless=False is required here.
+        run: xvfb-run -a python -m scripts.scrape_cinemaxx

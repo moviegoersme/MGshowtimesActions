@@ -1,0 +1,74 @@
+name: Scrape UCI Kinowelt (Germany)
+
+# UCI Kinowelt's 21 real German locations (see
+# scripts/scrape_uci_kinowelt.py's own docstring) sit behind a flat 403
+# even with headless=False + real_chrome=True + solve_cloudflare=True --
+# a non-interactive IP-reputation block, the same shape scrape_curzon.py's
+# own docstring documents, not a solvable challenge at all. Cleared only
+# through the Decodo residential proxy (repository secrets
+# DECODO_USERNAME/DECODO_PASSWORD; generic gate.decodo.com:7000, the
+# same first fix that cleared Odeon UK's own IP-reputation block, worked
+# here on the first attempt -- confirmed live 2026-09-26, unlike Curzon
+# UK, which needed Decodo's dedicated UK endpoint instead).
+#
+# Unlike CinemaxX/Vue's lightweight API calls, each cinema here needs a
+# real full page load (/home/<slug> -- the showtimes are embedded
+# directly in that page's own server-rendered HTML, no separate API
+# exists at all). Cinemas are processed in batches of BATCH_SIZE=4, each
+# batch solving Cloudflare once against a neutral page (/kinoprogramm,
+# never one of the batch's own cinemas) and reusing that one cleared
+# session's cookies for every cinema's own page.goto() in it -- same
+# modest batch size scrape_curzon.py settled on for its own real
+# per-cinema page loads, and the same "solve once per batch" reasoning
+# as scrape_vue.py/scrape_cineworld.py/scrape_curzon.py.
+#
+# headless=False is kept as a second line of defense against the
+# confirmed, still-open scrapling bug
+# (github.com/D4Vinci/Scrapling/issues/422) that breaks Cloudflare's
+# "managed" challenge under headless=True -- which is why this job still
+# installs Xvfb and runs under it, even though the Decodo proxy is the
+# real fix for UCI's own block shape.
+#
+# Scheduled every 4 hours, matching these 21 cinemas' own
+# scrape_interval_minutes: 240 in cinemas/registry.yaml -- offset from
+# this repo's other 4h GitHub-Actions-only scrapes (scrape-cineworld.yml's
+# "30 1-23/4", scrape-cinemaxx.yml's "15 */4") so they don't all fire at
+# once.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "50 */4 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          # Stream this script's per-cinema print()s live instead of in
+          # one burst whenever Python's block buffer happens to flush.
+          PYTHONUNBUFFERED: "1"
+        # xvfb-run gives the browser a real (virtual) display to run
+        # non-headless against -- see this file's own top comment.
+        run: xvfb-run -a python -m scripts.scrape_uci_kinowelt
