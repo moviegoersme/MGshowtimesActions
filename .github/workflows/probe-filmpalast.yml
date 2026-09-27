@@ -1,9 +1,8 @@
 name: Probe Filmpalast Cloudflare Challenge
 
-# Diagnostic only -- does NOT scrape or submit anything. Checks whether
-# Filmpalast's Cloudflare "managed" challenge on <city>.filmpalast.de
-# clears the same way CinemaxX's did (headless=False + solve_cloudflare
-# =True, no proxy) and dumps the cleared homepage's raw HTML -- see
+# Diagnostic only -- does NOT scrape or submit anything. Round 2: fetches
+# the real programme page and the site's own wp-json/pmkino/v1 REST API
+# root found in round 1's cleared homepage -- see
 # scripts/probe_filmpalast.py's own docstring in the private repo.
 
 "on":
@@ -29,13 +28,15 @@ jobs:
           python -m patchright install chrome --with-deps
           sudo apt-get update && sudo apt-get install -y xvfb
 
-      - name: Probe Filmpalast homepage
+      - name: Probe Filmpalast programme page and API root
         run: xvfb-run -a python -m scripts.probe_filmpalast
 
       - name: Upload probe result
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: filmpalast-probe-home-result
-          path: probe-filmpalast-home.html
+          name: filmpalast-probe-round2-result
+          path: |
+            probe-filmpalast-programm.html
+            probe-filmpalast-api-root.json
           if-no-files-found: warn
