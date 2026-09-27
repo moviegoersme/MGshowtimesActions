@@ -1,0 +1,41 @@
+name: Probe Filmpalast Cloudflare Challenge
+
+# Diagnostic only -- does NOT scrape or submit anything. Checks whether
+# Filmpalast's Cloudflare "managed" challenge on <city>.filmpalast.de
+# clears the same way CinemaxX's did (headless=False + solve_cloudflare
+# =True, no proxy) and dumps the cleared homepage's raw HTML -- see
+# scripts/probe_filmpalast.py's own docstring in the private repo.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe-filmpalast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Probe Filmpalast homepage
+        run: xvfb-run -a python -m scripts.probe_filmpalast
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: filmpalast-probe-home-result
+          path: probe-filmpalast-home.html
+          if-no-files-found: warn
