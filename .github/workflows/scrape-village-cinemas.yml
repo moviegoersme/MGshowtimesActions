@@ -14,14 +14,14 @@ name: Scrape Village Cinemas (Australia)
 # repo. See scripts/scrape_village_cinemas.py's own module docstring for
 # the full investigation.
 #
-# Scheduled every 3 hours, matching these 23 cinemas' own
-# scrape_interval_minutes: 180 in cinemas/registry.yaml. workflow_dispatch
+# Scheduled once per day, matching these 23 cinemas' own
+# scrape_interval_minutes: 1440 in cinemas/registry.yaml. workflow_dispatch
 # stays available too, for a manual re-run any time.
 
 "on":
   workflow_dispatch: {}
   schedule:
-    - cron: "20 */3 * * *"
+    - cron: "0 5 * * *"
 
 jobs:
   scrape:

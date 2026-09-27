@@ -14,17 +14,16 @@ name: Scrape Omniplex (UK)
 # for, so this runs as its own scheduled job instead, same shape as
 # Vue/Cineworld.
 #
-# Scheduled every 3 hours, matching these 22 cinemas' own
-# scrape_interval_minutes: 180 in cinemas/registry.yaml — offset 15
-# minutes from scrape-vue.yml's own "0 */3 * * *" and
-# scrape-cineworld.yml's own "30 1-23/3 * * *" so this repo's
-# GitHub-Actions-only scrapes don't all fire at once. workflow_dispatch
-# stays available too, for a manual re-run any time.
+# Scheduled once per day, matching these 22 cinemas' own
+# scrape_interval_minutes: 1440 in cinemas/registry.yaml — staggered from
+# every other scrape-*.yml's own cron in this repo so they don't all fire
+# at once. workflow_dispatch stays available too, for a manual re-run any
+# time.
 
 "on":
   workflow_dispatch: {}
   schedule:
-    - cron: "15 */3 * * *"
+    - cron: "30 4 * * *"
 
 jobs:
   scrape:

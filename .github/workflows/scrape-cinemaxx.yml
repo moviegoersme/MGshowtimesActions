@@ -23,16 +23,15 @@ name: Scrape CinemaxX (Germany)
 # needed on top of it (unlike Vue UK, which keeps one as a second line of
 # defense).
 #
-# Scheduled every 4 hours, matching these 29 cinemas' own
-# scrape_interval_minutes: 240 in cinemas/registry.yaml -- offset from
-# this repo's other 4h GitHub-Actions-only scrapes (scrape-cineworld.yml's
-# "30 1-23/4", scrape-uci-kinowelt.yml's "50 */4") so they don't all fire
-# at once.
+# Scheduled once per day, matching these 29 cinemas' own
+# scrape_interval_minutes: 1440 in cinemas/registry.yaml -- staggered
+# 15 minutes apart from this repo's other once-daily GitHub-Actions-only
+# scrapes so they don't all fire at once.
 
 "on":
   workflow_dispatch: {}
   schedule:
-    - cron: "15 */4 * * *"
+    - cron: "15 2 * * *"
 
 jobs:
   scrape:

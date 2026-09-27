@@ -9,8 +9,8 @@ name: Scrape K-Cineplex (Cyprus)
 # app's own /api/cron/scrape sweep — same shape as
 # scrape-empire-cinemas.yml for Empire Cinemas Sodeco.
 #
-# Scheduled every 2 hours, matching these 4 cinemas' own
-# scrape_interval_minutes: 120 in cinemas/registry.yaml. workflow_dispatch
+# Scheduled once per day, matching these 4 cinemas' own
+# scrape_interval_minutes: 1440 in cinemas/registry.yaml. workflow_dispatch
 # stays available too, for a manual re-run any time.
 #
 # Installs a real Google Chrome (not just patchright's bundled Chromium)
@@ -33,7 +33,7 @@ name: Scrape K-Cineplex (Cyprus)
 "on":
   workflow_dispatch: {}
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "30 3 * * *"
 
 jobs:
   scrape:

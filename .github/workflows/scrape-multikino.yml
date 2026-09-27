@@ -8,14 +8,14 @@ name: Scrape Multikino (Poland)
 # challenge only clears through a POLISH exit IP (confirmed by
 # probe-multikino.yml: generic pool 3/3 failures, Polish exit clean).
 #
-# Every 4h (matching these cinemas' scrape_interval_minutes: 240), at :30
-# so it never starts alongside scrape-vue.yml's on-the-hour runs on the
-# same shared Decodo account.
+# Once per day (matching these cinemas' scrape_interval_minutes: 1440),
+# staggered from every other scrape-*.yml's own cron in this repo so it
+# never starts alongside another job on the same shared Decodo account.
 
 "on":
   workflow_dispatch: {}
   schedule:
-    - cron: "30 */4 * * *"
+    - cron: "45 3 * * *"
 
 jobs:
   scrape:

@@ -29,16 +29,15 @@ name: Scrape UCI Kinowelt (Germany)
 # installs Xvfb and runs under it, even though the Decodo proxy is the
 # real fix for UCI's own block shape.
 #
-# Scheduled every 4 hours, matching these 21 cinemas' own
-# scrape_interval_minutes: 240 in cinemas/registry.yaml -- offset from
-# this repo's other 4h GitHub-Actions-only scrapes (scrape-cineworld.yml's
-# "30 1-23/4", scrape-cinemaxx.yml's "15 */4") so they don't all fire at
-# once.
+# Scheduled once per day, matching these 21 cinemas' own
+# scrape_interval_minutes: 1440 in cinemas/registry.yaml -- staggered from
+# this repo's other once-daily GitHub-Actions-only scrapes so they don't
+# all fire at once.
 
 "on":
   workflow_dispatch: {}
   schedule:
-    - cron: "50 */4 * * *"
+    - cron: "45 4 * * *"
 
 jobs:
   scrape:

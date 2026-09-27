@@ -18,14 +18,12 @@ name: Scrape Odeon (UK)
 # catalog for title lookup (~0.4MB) — no per-cinema requests at all.
 #
 # IMPORTANT: the Decodo account is on a 100 MB trial (confirmed live via
-# the user's own dashboard) — each run costs roughly 7-8MB. On this
-# 3-hour schedule (8 runs/day) that's ~56-64MB/day, which will exhaust a
-# 100 MB trial in under 2 days. This schedule assumes the account will be
-# upgraded to a paid plan before or shortly after this starts running
-# unattended — if the trial runs out, runs will start failing with a
-# proxy auth/quota error, not silently corrupt data (this app's own
-# ingest endpoint never wipes existing showtimes on a failed/empty
-# scrape).
+# the user's own dashboard) — each run costs roughly 7-8MB. Now that this
+# runs once per day rather than every 3 hours, that's only ~7-8MB/day, a
+# comfortable margin under the 100 MB trial. If the trial ever does run
+# out, runs will start failing with a proxy auth/quota error, not
+# silently corrupt data (this app's own ingest endpoint never wipes
+# existing showtimes on a failed/empty scrape).
 #
 # workflow_dispatch only at first — this was the first real end-to-end
 # production run for this chain (prior runs were diagnostic probes only,
@@ -44,16 +42,16 @@ name: Scrape Odeon (UK)
 # scripts/scrape_odeon.py now runs headless=False, which is why this job
 # installs Xvfb and runs under it below. Confirmed live the same day: a
 # fresh manual run solved Cloudflare cleanly (single attempt) and wrote
-# real showtimes for all 101/101 cinemas — schedule enabled below, every
-# 3 hours matching scrape_interval_minutes: 180 in cinemas/registry.yaml,
-# offset 2 hours from scrape-vue.yml's own "0 */3 * * *" and clear of
-# scrape-cineworld.yml's "30 1-23/3 * * *" so the three largest
-# GitHub-Actions-only scrapes in this repo don't run at once.
+# real showtimes for all 101/101 cinemas — schedule enabled below, moved
+# to once per day matching scrape_interval_minutes: 1440 in
+# cinemas/registry.yaml, staggered from every other scrape-*.yml's own
+# cron in this repo so the largest GitHub-Actions-only scrapes don't run
+# at once.
 
 "on":
   workflow_dispatch: {}
   schedule:
-    - cron: "0 2-23/3 * * *"
+    - cron: "15 4 * * *"
 
 jobs:
   scrape:

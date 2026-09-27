@@ -19,16 +19,16 @@ name: Scrape Event Cinemas (Australia)
 # never itself confirmed against eventcinemas.com.au's geo-block, and
 # this environment is the one that WAS confirmed live.
 #
-# Scheduled every 3 hours, matching these 53 cinemas' own
-# scrape_interval_minutes: 180 in cinemas/registry.yaml — offset 5
-# minutes from every other scrape-*.yml's own cron minute in this repo
-# so they don't all fire at once. workflow_dispatch stays available too,
-# for a manual re-run any time.
+# Scheduled once per day, matching these 53 cinemas' own
+# scrape_interval_minutes: 1440 in cinemas/registry.yaml — staggered from
+# every other scrape-*.yml's own cron in this repo so they don't all fire
+# at once. workflow_dispatch stays available too, for a manual re-run any
+# time.
 
 "on":
   workflow_dispatch: {}
   schedule:
-    - cron: "5 */3 * * *"
+    - cron: "15 3 * * *"
 
 jobs:
   scrape:

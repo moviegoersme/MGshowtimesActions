@@ -12,9 +12,9 @@ name: Scrape Cineplex (Germany)
 #
 # Each of the 74 real city pages inlines that whole city's own future
 # schedule (1.5-4MB, no way to ask for less) -- real proxy spend, so this
-# runs every 12h (cinemas/registry.yaml's own scrape_interval_minutes:
-# 720 for this chain) rather than the usual 4h, at :10/:22:10 UTC, clear
-# of every other scheduled job on the shared Decodo account.
+# runs once per day (cinemas/registry.yaml's own scrape_interval_minutes:
+# 1440 for this chain), at 02:30 UTC, clear of every other scheduled job
+# on the shared Decodo account.
 
 "on":
   workflow_dispatch:
@@ -24,7 +24,7 @@ name: Scrape Cineplex (Germany)
         type: boolean
         default: false
   schedule:
-    - cron: "10 */12 * * *"
+    - cron: "30 2 * * *"
 
 jobs:
   scrape:
