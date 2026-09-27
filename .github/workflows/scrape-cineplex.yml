@@ -1,0 +1,54 @@
+name: Scrape Cineplex (Germany)
+
+# Cineplex Deutschland's 92 real locations (see scripts/scrape_cineplex.py
+# in moviegoersme/showtimes). Used to run in-process on Vercel with no
+# Cloudflare challenge at all, but a 2026-09-27 production health scan
+# found ~92% of its own scrape_runs failing with plain 403s -- a flat
+# IP-reputation block on datacenter egress ranges (confirmed live via
+# scripts/probe_cineplex.py: Vercel's own AND GitHub Actions' own raw IP
+# both 403, Decodo's generic residential proxy clears it instantly with
+# the exact same impersonated request, no browser/Cloudflare-solve
+# needed). Moved here for the proxy.
+#
+# Each of the 74 real city pages inlines that whole city's own future
+# schedule (1.5-4MB, no way to ask for less) -- real proxy spend, so this
+# runs every 12h (cinemas/registry.yaml's own scrape_interval_minutes:
+# 720 for this chain) rather than the usual 4h, at :10/:22:10 UTC, clear
+# of every other scheduled job on the shared Decodo account.
+
+"on":
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch and parse only; submit nothing"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "10 */12 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          PYTHONUNBUFFERED: "1"
+        run: python -m scripts.scrape_cineplex
