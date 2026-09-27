@@ -1,0 +1,38 @@
+name: Probe Cineplex Germany
+
+# Diagnostic only — does NOT scrape or submit anything. A production
+# health scan (2026-09-27) found Cineplex Germany's in-process Vercel
+# scraper failing ~92% of the time over 24h, all plain 403s, even though
+# the site has no Cloudflare challenge and a plain fetch from a regular
+# dev machine succeeds instantly — likely an IP-reputation block specific
+# to Vercel's own shared serverless egress. This checks whether routing
+# through Decodo's generic residential gateway (already used by UCI
+# Kinowelt for the same class of block) clears it from a GitHub Actions
+# runner, and whether GitHub's own raw IP already works unblocked as a
+# cheaper baseline.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Probe cineplex.de reachability, direct and via proxy
+        env:
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+        run: python -m scripts.probe_cineplex
