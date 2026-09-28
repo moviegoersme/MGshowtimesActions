@@ -1,0 +1,40 @@
+name: Probe ODEON Kino Norway
+
+# Diagnostic only — does NOT scrape or submit anything. ODEON Norway's
+# in-process Vercel scraper (scrapers/norway/odeon.py) started failing
+# 100% of the time on 2026-09-28 with a flat 403 on its shared movie
+# catalog endpoint, despite one retry already built in. A plain curl from
+# a regular dev machine gets a clean 200 with no bot-challenge at all —
+# ruling out TLS/behavioral detection and pointing at a source-IP block
+# on Vercel's shared egress, the same shape already confirmed for
+# Cineplex Germany. This tests the same impersonated fetcher production
+# uses, direct from a GitHub Actions runner and via Decodo's generic
+# residential proxy, to confirm whether GitHub Actions' own raw IP is
+# blocked too (as it was for Cineplex) or whether plain GitHub Actions is
+# already enough.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Probe services.cinema-api.com reachability, direct and via proxy
+        env:
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+        run: python -m scripts.probe_odeon_norway
