@@ -1,0 +1,51 @@
+name: Scrape Filmstaden, Svenska Bio, Ryden (Sweden)
+
+# All 80 real cinemas across Sweden's three biggest chains -- Filmstaden
+# (#1, 34 locations), Svenska Bio (#2, 43 locations), and Ryden (a small
+# regional group, 3 locations) -- share ONE backend,
+# services.cinema-api.com, the exact same Vista-based Nordic platform
+# ODEON Kino Norway runs on (see scripts/scrape_filmstaden.py's own
+# module docstring). Built as GitHub-Actions-only from the start, no
+# in-process Vercel step: that exact same backend broke Vercel's own IP
+# the day after ODEON Norway's own in-process launch, so there was no
+# reason to repeat that churn for a chain 8x the size.
+#
+# filmstaden.se's own marketing site sits behind a Cloudflare "Verify you
+# are human" challenge, but that's only relevant to discovering the real
+# backend (scripts/probe_filmstaden.py, probe_filmstaden_network.py, kept
+# for reference) -- services.cinema-api.com itself has no bot challenge
+# at all, confirmed live via plain curl, so this scrapes it directly with
+# no browser and no proxy.
+#
+# Scheduled once per day, matching these 80 cinemas' own
+# scrape_interval_minutes: 1440 in cinemas/registry.yaml -- staggered
+# from every other scrape-*.yml's own cron in this repo.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "45 5 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PYTHONUNBUFFERED: "1"
+        run: python -m scripts.scrape_filmstaden
