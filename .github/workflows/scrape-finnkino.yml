@@ -1,0 +1,57 @@
+name: Scrape Finnkino (Finland)
+
+# Finnkino's 17 real Finnish locations (see scripts/scrape_finnkino.py's
+# own docstring) -- Finland's largest chain, part of the same AMC/Nordic
+# Cinema Group family as Filmstaden (Sweden) and ODEON Kino (Norway), but
+# on a different platform: Vista's OCAPI (digital-api.finnkino.fi), not
+# services.cinema-api.com.
+#
+# finnkino.fi sits behind a Cloudflare "Just a moment..." managed
+# challenge, cleared the same way as every other chain here
+# (headless=False via Xvfb, real_chrome=True -- the confirmed, still-open
+# scrapling bug, github.com/D4Vinci/Scrapling/issues/422, that makes
+# headless=True loop and fail). But clearing the challenge isn't the
+# whole story here: digital-api.finnkino.fi itself has no Cloudflare
+# challenge of its own (confirmed live via plain curl) but requires a
+# short-lived bearer token the app's own frontend JS never persists
+# anywhere observable -- this script clears the challenge once, lifts
+# that token straight off the first authenticated request the page
+# itself makes, then uses plain httpx for every other call (confirmed
+# live: the captured token isn't IP-bound and comfortably outlives one
+# scrape run).
+#
+# Scheduled once per day, matching these 17 cinemas' own
+# scrape_interval_minutes: 1440 in cinemas/registry.yaml -- staggered
+# from every other scrape-*.yml's own cron in this repo.
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PYTHONUNBUFFERED: "1"
+        run: xvfb-run -a python -m scripts.scrape_finnkino
