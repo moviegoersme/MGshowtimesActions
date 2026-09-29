@@ -1,0 +1,55 @@
+name: Scrape Kinepolis (Belgium)
+
+# Kinepolis Belgium's 11 real locations (see scripts/scrape_kinepolis_belgium.py's
+# own docstring) -- Belgium is Kinepolis's own home market, but runs on a
+# completely different platform from Kinepolis Netherlands (Drupal 7): a
+# client-rendered Vite SPA whose real data lives on a separate Vista
+# OCAPI domain (digital-api.kinepolis.be, same vendor family as Finnkino)
+# needing a browser-captured bearer token. No in-process parser can get
+# past that -- this is the chain's entire scrape path, independent of the
+# app's own /api/cron/scrape sweep, same shape as scrape-finnkino.yml.
+#
+# headless=False (not headless=True) for the same confirmed, still-open
+# scrapling bug (github.com/D4Vinci/Scrapling/issues/422) every other
+# chain here already documents -- confirmed live for kinepolis.be itself,
+# 2026-09-29 (no interactive Cloudflare challenge was even shown, the
+# site just needs real JS execution to render at all since it has zero
+# server-rendered content).
+#
+# Scheduled once per day, matching these 11 cinemas' own
+# scrape_interval_minutes: 1440 in cinemas/registry.yaml -- staggered
+# 15 minutes apart from this repo's other once-daily GitHub-Actions-only
+# scrapes so they don't all fire at once (06:30 UTC is the next free slot
+# after scrape-vue-netherlands.yml's 06:15).
+
+"on":
+  workflow_dispatch: {}
+  schedule:
+    - cron: "30 6 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PYTHONUNBUFFERED: "1"
+        run: xvfb-run -a python -m scripts.scrape_kinepolis_belgium
