@@ -1,0 +1,35 @@
+name: Probe UGC (Belgium)
+
+# One-off evidence gathering for UGC Belgium -- see scripts/probe_ugc_belgium.py
+# (in moviegoersme/showtimes) for what it looks for and why. www.ugc.be
+# returns a flat Google Cloud Load Balancer 403 to this app's usual
+# egress on every path, while the sibling www.ugc.fr returns 200 from
+# the same client -- the probe pins a Belgian Decodo exit (same
+# technique as probe-nfbio.yml) to check whether that's the fix.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Probe ugc.be
+        env:
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          PYTHONUNBUFFERED: "1"
+        run: python -m scripts.probe_ugc_belgium
