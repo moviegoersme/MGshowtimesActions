@@ -55,4 +55,5 @@ jobs:
             probe-odeon-ireland-results.json
             probe-odeon-ireland-home.html
             probe-odeon-ireland-cinema-page.html
+            probe-odeon-ireland-main-bundle.js
           if-no-files-found: warn
