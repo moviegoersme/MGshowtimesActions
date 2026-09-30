@@ -1,0 +1,57 @@
+name: Probe Odeon (Ireland)
+
+# Diagnostic only — does NOT scrape or submit anything. odeoncinemas.ie
+# is a separate domain from odeon.co.uk (already covered for UK/NI by
+# scrape-odeon.yml). Confirmed live: the UK chain's own CinemasSchedule
+# worker feed is UK-only (101 cinemas, all GBP, no Irish city anywhere),
+# so Ireland needs its own discovery. odeoncinemas.ie sits behind the
+# same Cloudflare "Just a moment..." challenge as odeon.co.uk itself —
+# routed through a Decodo residential proxy pinned to an Irish exit from
+# the start, same as scrape-odeon.yml's own UK fix (real_chrome alone did
+# not clear odeon.co.uk's block from GitHub Actions' own IP ranges).
+#
+# scripts/probe_odeon_ireland.py loads the real homepage with a response
+# listener registered from the start, pulls real film-detail-page links
+# out of it, then visits one to find Ireland's own real showtimes
+# source (mirrors scripts/probe_odeon_film.py's own successful UK
+# technique).
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  probe-film:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Probe homepage + one film-detail page
+        env:
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+        run: xvfb-run -a python -m scripts.probe_odeon_ireland
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: odeon-ireland-probe-result
+          path: |
+            probe-odeon-ireland-results.json
+            probe-odeon-ireland-home.html
+            probe-odeon-ireland-film-page.html
+          if-no-files-found: warn
