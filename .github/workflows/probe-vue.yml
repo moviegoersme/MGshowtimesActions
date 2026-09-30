@@ -1,28 +1,32 @@
-name: Probe Vue Cinemas (UK)
+name: Probe Vue Cinemas (Ireland)
 
 # Diagnostic only — does NOT scrape or submit anything. Earlier rounds of
 # this workflow (see git history for scripts/probe_vue.py,
-# probe_vue_stealth.py, probe_vue_site.py) already answered:
+# probe_vue_stealth.py, probe_vue_site.py, and this file's own history)
+# already answered, for Vue UK:
 # - plain Playwright never gets past myvue.com's Cloudflare challenge;
 #   patchright's bundled Chromium doesn't either ("managed" Turnstile).
-# - scrapling's StealthyFetcher with real_chrome=True DOES clear it
-#   (confirmed live, 2026-09-16).
+# - scrapling's StealthyFetcher with real_chrome=True DOES clear it, but
+#   only with headless=False (a real, virtual display via Xvfb below) —
+#   headless=True loops and fails every time
+#   (github.com/D4Vinci/Scrapling/issues/422, still open).
 # - the real showtimes API is
 #   /api/microservice/showings/cinemas/{cinemaId}/films?showingDate=...
 #   &minEmbargoLevel=3&includesSession=true&includeSessionAttributes=true
 #   (confirmed live against cinemaId=10015 / Birmingham, with real
 #   sessions: times, screens, prices).
+# - each of the 89 real UK cinemas' numeric cinemaId (not the same as its
+#   URL slug) was found by pulling it out of that cinema's own Next.js
+#   SSR data endpoint — already recorded in scripts/scrape_vue.py's own
+#   CINEMAS dict, no need to re-discover.
 # Those jobs were removed once answered, to keep re-runs of this
 # workflow fast — see git history if they need to be re-run.
 #
-# The one open question this version answers: the showtimes API needs
-# each cinema's numeric cinemaId, which isn't the same as its URL slug
-# ("birmingham" -> 10015) and isn't itself exposed in the sitemap.
-# scripts/probe_vue_cinema_ids.py tries a couple of plausible "list all
-# cinemas" endpoints, then falls back to pulling each of the 89 real UK
-# slugs' cinemaId out of its own page's Next.js SSR data endpoint — all
-# reusing one already-Cloudflare-cleared browser session instead of
-# re-solving the challenge per cinema.
+# This version (2026-09-30) is scoped to scripts/probe_vue_cinema_ids.py's
+# current CINEMA_SLUGS — Vue Ireland's 2 real locations (dublin,
+# limerick), confirmed live via myvue.com's own sitemap.xml but excluded
+# from every earlier UK-only round of this probe. Same platform, same
+# API, same technique.
 
 "on":
   workflow_dispatch: {}
@@ -45,16 +49,18 @@ jobs:
         run: |
           pip install -r requirements.txt
           python -m patchright install chrome --with-deps
+          sudo apt-get update && sudo apt-get install -y xvfb
 
-      - name: Probe cinema-list endpoints and per-slug cinemaIds
-        run: python -m scripts.probe_vue_cinema_ids
+      - name: Probe per-slug cinemaIds
+        # headless=False needs a real (virtual) display — see this
+        # workflow's own top comment and scripts/scrape_vue.py's own
+        # docstring for why (a confirmed, still-open scrapling bug).
+        run: xvfb-run -a python -m scripts.probe_vue_cinema_ids
 
       - name: Upload probe result
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: vue-probe-cinema-ids-result
-          path: |
-            probe-vue-cinema-list-candidates.json
-            probe-vue-cinema-ids-raw.json
+          path: probe-vue-cinema-ids-raw.json
           if-no-files-found: warn
