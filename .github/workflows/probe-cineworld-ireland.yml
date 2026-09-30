@@ -51,5 +51,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: cineworld-ireland-probe-result
-          path: probe-cineworld-ireland-results.json
+          path: |
+            probe-cineworld-ireland-results.json
+            probe-cineworld-ireland-home.html
           if-no-files-found: warn
