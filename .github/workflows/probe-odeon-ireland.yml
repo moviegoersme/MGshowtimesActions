@@ -54,5 +54,5 @@ jobs:
           path: |
             probe-odeon-ireland-results.json
             probe-odeon-ireland-home.html
-            probe-odeon-ireland-film-page.html
+            probe-odeon-ireland-cinema-page.html
           if-no-files-found: warn
