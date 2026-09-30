@@ -43,6 +43,7 @@ jobs:
         env:
           DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
           DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          PYTHONUNBUFFERED: "1"
         run: xvfb-run -a python -m scripts.probe_odeon_ireland
 
       - name: Upload probe result
