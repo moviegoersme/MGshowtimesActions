@@ -8,6 +8,9 @@ name: Probe URLs via a country exit
       country:
         description: "ISO country code of the exit"
         default: "at"
+      headers:
+        description: "Optional JSON object of extra request headers"
+        default: ""
       urls:
         description: "URLs, separated by spaces"
         required: true
@@ -34,6 +37,7 @@ jobs:
           DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
           PROBE_COUNTRY: ${{ inputs.country }}
           PROBE_URLS_RAW: ${{ inputs.urls }}
+          PROBE_HEADERS: ${{ inputs.headers }}
         run: |
           export PROBE_URLS="$(echo "$PROBE_URLS_RAW" | tr ' ' '\n')"
           python scripts/probe_urls.py
