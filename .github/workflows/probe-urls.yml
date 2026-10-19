@@ -1,0 +1,47 @@
+name: Probe URLs via a country exit
+
+# Generic one-off: fetch URLs through a Decodo exit pinned to a country. See scripts/probe_urls.py (moviegoersme/showtimes).
+
+"on":
+  workflow_dispatch:
+    inputs:
+      country:
+        description: "ISO country code of the exit"
+        default: "at"
+      urls:
+        description: "URLs, separated by spaces"
+        required: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - run: pip install httpx
+
+      - name: Probe
+        env:
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          PROBE_COUNTRY: ${{ inputs.country }}
+          PROBE_URLS_RAW: ${{ inputs.urls }}
+        run: |
+          export PROBE_URLS="$(echo "$PROBE_URLS_RAW" | tr ' ' '\n')"
+          python scripts/probe_urls.py
+
+      - name: Upload probe result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: probe-urls-result
+          path: probe-urls-*
+          if-no-files-found: warn
