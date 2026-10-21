@@ -1,0 +1,42 @@
+name: Scrape UGC (France)
+
+# The 47 UGC cinemas in France (see scripts/scrape_ugc.py in moviegoersme/showtimes).
+# www.ugc.fr only serves French IPs (bare 403 elsewhere) and Vercel has no French region, so this runs here through a French Decodo exit.
+# Plain HTTP, no browser. Every 8 hours (these cinemas' scrape_interval_minutes: 480), offset from the other Decodo jobs.
+
+"on":
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch and parse only; submit nothing"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "50 3,11,19 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DECODO_USERNAME: ${{ secrets.DECODO_USERNAME }}
+          DECODO_PASSWORD: ${{ secrets.DECODO_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          PYTHONUNBUFFERED: "1"
+        run: python -m scripts.scrape_ugc
