@@ -1,0 +1,38 @@
+name: Probe AMC Theatres API
+
+# One-off: does AMC's official API accept our vendor key from a GitHub runner address? (see scripts/probe_amc.py in moviegoersme/showtimes)
+
+"on":
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Probe
+        env:
+          AMC_VENDOR_KEY: ${{ secrets.AMC_VENDOR_KEY }}
+          PYTHONUNBUFFERED: "1"
+        run: python scripts/probe_amc.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: amc-probe
+          path: |
+            amc-theatres.json
+            amc-sample.json
+          if-no-files-found: ignore
