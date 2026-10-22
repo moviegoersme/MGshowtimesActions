@@ -1,0 +1,41 @@
+name: Scrape AMC Theatres (USA)
+
+# The AMC Theatres in the US, through AMC's official partner API (see scripts/scrape_amc.py and scrapers/usa/amc.py in moviegoersme/showtimes).
+# Uses the AMC_VENDOR_KEY secret. The API answers GitHub runner addresses but is Cloudflare-blocked from some others, so this runs here, not in the app.
+# Every 8 hours (these cinemas' scrape_interval_minutes: 480), offset from the other jobs.
+
+"on":
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch and parse only; submit nothing"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "5 4,12,20 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: moviegoersme/showtimes
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape and submit
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          AMC_VENDOR_KEY: ${{ secrets.AMC_VENDOR_KEY }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          PYTHONUNBUFFERED: "1"
+        run: python -m scripts.scrape_amc
